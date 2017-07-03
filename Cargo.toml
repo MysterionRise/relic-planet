@@ -1,0 +1,7 @@
+[package]
+name = "relic-planet"
+version = "0.1.0"
+authors = ["Konstantin Perikov <pericov.ko@gmail.com>"]
+
+[dependencies]
+
