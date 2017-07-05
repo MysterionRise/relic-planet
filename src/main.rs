@@ -13,7 +13,6 @@ use iron::status;
 	fn get_form(request: &mut Request) -> IronResult<Response> {
 		let mut response = Response::new();
 		response.set_mut(status::Ok);
-		response.set_mut(mime::TEXT_HTML);
 		response.set_mut(r#"
 			<title>GCD Calculator</title>
 			<form action="/gcd" method="post">
