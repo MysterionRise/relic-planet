@@ -28,9 +28,9 @@ fn main() {
     router.get("/", get_form, "index");
     router.post("/gcd", post_gcd, "gcd");
 
-    println!("Serving on http://localhost:3000...");
+    println!("Serving on http://localhost:8000...");
 
-    Iron::new(router).http("localhost:3000").unwrap();
+    Iron::new(router).http("localhost:8000").unwrap();
 }
 
 fn post_gcd(req: &mut Request) -> IronResult<Response> {
