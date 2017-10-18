@@ -7,6 +7,9 @@ import os
 import io
 import csv
 
+from telegram.ext import Updater, CommandHandler
+from telegram.ext.dispatcher import run_async
+
 from apiclient import discovery
 from oauth2client import client
 from oauth2client import tools
@@ -60,8 +63,9 @@ def get_credentials():
         print('Storing credentials to ' + credential_path)
     return credentials
 
-def main():
-
+@run_async
+def itaka(bot, update):
+	chat_id = update.message.chat.id
 	file_id = '1iltpcolP3b-wb4w3eROVsByF4Mqy4gDt8BJExmjzGtw'
 	credentials = get_credentials()
 	http = credentials.authorize(httplib2.Http())
@@ -78,11 +82,19 @@ def main():
 	# reading the csv
 	reader = csv.reader(open(r"forecast.csv"),delimiter=',')
 	filtered = filter(lambda x: x[1] in teams, list(reader))
+	
 	print("Total Today Week Transfers Team")
 	for row in filtered:
 		print("{} {} {} {} {}".format(row[4], row[5], row[9], row[14], row[1]))
 	csv.writer(open(r"result.csv",'w'),delimiter=' ').writerows(filtered)
-	
+	bot.send_message(chat_id, text="")
+
+def main():	
+	updater = Updater("")
+
+        updater.dispatcher.add_handler(CommandHandler('itaka', itaka))
+        updater.start_polling()
+        updater.idle()	
 	
 if __name__ == '__main__':
     main()
