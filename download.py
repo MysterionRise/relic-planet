@@ -83,11 +83,11 @@ def itaka(bot, update):
 	reader = csv.reader(open(r"forecast.csv"),delimiter=',')
 	filtered = filter(lambda x: x[1] in teams, list(reader))
 	
-	print("Total Today Week Transfers Team")
-	for row in filtered:
-		print("{} {} {} {} {}".format(row[4], row[5], row[9], row[14], row[1]))
+	itaka = "Total Today Week Transfers Team\n"
+        for row in filtered:
+                itaka += "{} {} {} {} {}\n".format(row[4], row[5], row[9], row[14], row[1])
 	csv.writer(open(r"result.csv",'w'),delimiter=' ').writerows(filtered)
-	bot.send_message(chat_id, text="")
+	bot.send_message(chat_id, text=itaka)
 
 def main():	
 	updater = Updater("")
