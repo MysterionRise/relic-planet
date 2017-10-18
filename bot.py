@@ -6,6 +6,7 @@ import httplib2
 import os
 import io
 import csv
+import time
 
 from telegram.ext import Updater, CommandHandler
 from telegram.ext.dispatcher import run_async
@@ -63,38 +64,50 @@ def get_credentials():
         print('Storing credentials to ' + credential_path)
     return credentials
 
+prev_name = ""
+
 @run_async
-def itaka(bot, update):
-	chat_id = update.message.chat.id
+def itaka(bot, job):
+	print("polling changes from Google Drive")
+	chat_id = "-258576547"
 	file_id = '1iltpcolP3b-wb4w3eROVsByF4Mqy4gDt8BJExmjzGtw'
 	credentials = get_credentials()
 	http = credentials.authorize(httplib2.Http())
 	drive_service = discovery.build('drive', 'v3', http=http)
-	print(drive_service.files().get(fileId=file_id).execute())
-	request = drive_service.files().export_media(fileId=file_id,
-                                             mimeType='text/csv')
-	fh = io.FileIO("forecast.csv", 'wb')
-	downloader = MediaIoBaseDownload(fh, request)
-	done = False
-	while done is False:
-	    status, done = downloader.next_chunk()
+	current_name = drive_service.files().get(fileId=file_id).execute()["name"]
 
-	# reading the csv
-	reader = csv.reader(open(r"forecast.csv"),delimiter=',')
-	filtered = filter(lambda x: x[1] in teams, list(reader))
+	global prev_name
+	if current_name != prev_name:
+		print("we should call itaka")
+		prev_name = current_name
+		request = drive_service.files().export_media(fileId=file_id, mimeType='text/csv')
+		fh = io.FileIO("forecast.csv", 'wb')
+		downloader = MediaIoBaseDownload(fh, request)
+		done = False
+		while done is False:
+		    status, done = downloader.next_chunk()
 	
-	itaka = "Total Today Week Transfers Team\n"
-        for row in filtered:
-                itaka += "{} {} {} {} {}\n".format(row[4], row[5], row[9], row[14], row[1])
-	csv.writer(open(r"result.csv",'w'),delimiter=' ').writerows(filtered)
-	bot.send_message(chat_id, text=itaka)
+		# reading the csv
+		reader = csv.reader(open(r"forecast.csv"),delimiter=',')
+		filtered = filter(lambda x: x[1] in teams, list(reader))
+		
+		itaka = "<b>Total Today Diff Week Transfers RemainingGames Team </b>\n<pre>"
+       		for row in filtered:
+               		itaka += "{} {} {} {} {} {} {}\n".format(row[4], row[5], row[3], row[9], row[14], row[13], row[1])
+		itaka += "</pre>"
+		csv.writer(open(r"result.csv",'w'),delimiter=' ').writerows(filtered)
+		msg = bot.send_message(chat_id, text=itaka, parse_mode='HTML')
+		bot.pin_chat_message(chat_id, msg.message_id)
+
 
 def main():	
 	updater = Updater("")
 
-        updater.dispatcher.add_handler(CommandHandler('itaka', itaka))
+	job = updater.job_queue
+	job.run_repeating(itaka, interval=300, first=0)
+        #updater.dispatcher.add_handler(CommandHandler('itaka', itaka))
         updater.start_polling()
-        updater.idle()	
+	updater.idle()
 	
 if __name__ == '__main__':
     main()
