@@ -69,7 +69,7 @@ prev_name = ""
 @run_async
 def itaka(bot, job):
 	print("polling changes from Google Drive")
-	chat_id = "-258576547"
+	chat_id = "-1001140113988"
 	file_id = '1iltpcolP3b-wb4w3eROVsByF4Mqy4gDt8BJExmjzGtw'
 	credentials = get_credentials()
 	http = credentials.authorize(httplib2.Http())
@@ -80,12 +80,14 @@ def itaka(bot, job):
 	if current_name != prev_name:
 		print("we should call itaka")
 		prev_name = current_name
-		request = drive_service.files().export_media(fileId=file_id, mimeType='text/csv')
-		fh = io.FileIO("forecast.csv", 'wb')
-		downloader = MediaIoBaseDownload(fh, request)
-		done = False
-		while done is False:
-		    status, done = downloader.next_chunk()
+		request = drive_service.files().export(fileId=file_id, mimeType='text/csv')
+		resp = req.execute(http=http)
+		print(resp)
+		#fh = io.FileIO("forecast.csv", 'wb')
+		#downloader = MediaIoBaseDownload(fh, request)
+		#done = False
+		#while done is False:
+		#    status, done = downloader.next_chunk()
 	
 		# reading the csv
 		reader = csv.reader(open(r"forecast.csv"),delimiter=',')
@@ -96,8 +98,8 @@ def itaka(bot, job):
                		itaka += "{} {} {} {} {} {} {}\n".format(row[4], row[5], row[3], row[9], row[14], row[13], row[1])
 		itaka += "</pre>"
 		csv.writer(open(r"result.csv",'w'),delimiter=' ').writerows(filtered)
-		msg = bot.send_message(chat_id, text=itaka, parse_mode='HTML')
-		bot.pin_chat_message(chat_id, msg.message_id)
+		#msg = bot.send_message(chat_id, text=itaka, parse_mode='HTML')
+		#bot.pin_chat_message(chat_id, msg.message_id)
 
 
 def main():	
@@ -105,7 +107,6 @@ def main():
 
 	job = updater.job_queue
 	job.run_repeating(itaka, interval=300, first=0)
-        #updater.dispatcher.add_handler(CommandHandler('itaka', itaka))
         updater.start_polling()
 	updater.idle()
 	
