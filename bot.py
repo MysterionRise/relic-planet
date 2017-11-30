@@ -5,6 +5,9 @@ from __future__ import print_function
 import httplib2
 import os
 import csv
+import requests
+import bs4
+import pandas as pd
 
 from telegram.ext import Updater, CommandHandler
 from telegram.ext.dispatcher import run_async
@@ -29,6 +32,44 @@ except ImportError:
 SCOPES = 'https://www.googleapis.com/auth/drive.readonly'
 CLIENT_SECRET_FILE = 'client_secret.json'
 APPLICATION_NAME = 'Drive API Python Quickstart'
+
+
+def get_today_data_for_players():
+    r = requests.get('http://nbafantasy.center/')
+    html = bs4.BeautifulSoup(r.text, "html.parser")
+    today_scores = {}
+    scores = html.find_all('td', {'class': "player-score"})
+    names = html.find_all('td', {'class': "player-name"})
+    for i in range(len(names)):
+        today_scores[names[i].get_text()] = int(scores[i].get_text())
+    return today_scores
+
+
+def get_all_sheets():
+    file_id = '1iltpcolP3b-wb4w3eROVsByF4Mqy4gDt8BJExmjzGtw'
+    credentials = get_credentials()
+    http = credentials.authorize(httplib2.Http())
+    drive_service = discovery.build('drive', 'v3', http=http)
+    request = drive_service.files().export(fileId=file_id,
+                                           mimeType='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    resp = request.execute(http=http)
+    file = open("forecast.xlsx", "wb")
+    file.write(resp)
+
+
+def read_players_sheet():
+    df = pd.read_excel(open('forecast.xlsx', 'rb'), 'Players')
+    history_data = dict(zip(df['Player'], df['PPG']))
+    today_data = get_today_data_for_players()
+    diff = []
+    for key, value in today_data.items():
+        ppg = history_data[key.strip(' ')]
+        pr = tuple((key, float(ppg) - float(value)))
+        diff.append(pr)
+    # todo filter only players that we have on sports.ru
+    # [x for x in my_list if x.attribute == value]
+    diff.sort(key=lambda x: x[1])
+    return (diff[0], diff[len(diff) - 1])
 
 
 def get_credentials():
@@ -82,11 +123,19 @@ def itaka(bot, job):
             resp = request.execute(http=http)
             file = open("forecast.csv", "wb")
             file.write(resp)
+            # get all sheets
+            get_all_sheets()
+            # split xslx and read sheet & convert to csv
+            best, worst = read_players_sheet()
+
             # reading the csv
             with open('forecast.csv', encoding='utf-8') as f:
                 reader = csv.reader(f)
                 filtered = filter(lambda x: x[1] in teams, reader)
-                itaka = "<b>Total Today Diff Week Transfers RemainingGames Team </b>\n<pre>"
+                itaka = "<b>Pidor dnya: {} {}\n".format(worst[0], -worst[1])
+                itaka += "Reverse pidor dnya: {} +{}</b>\n".format(best[0], -best[1])
+                itaka += "\n"
+                itaka += "<b>Total Today Diff Week Transfers RemainingGames Team </b>\n<pre>"
                 for row in filtered:
                     itaka += "{} {} {} {} {} {} {}\n".format(row[4], row[5], row[3], row[9], row[14], row[13], row[1])
                 itaka += "</pre>"
