@@ -8,6 +8,7 @@ import csv
 import requests
 import bs4
 import pandas as pd
+import datetime
 
 from telegram.ext import Updater, CommandHandler
 from telegram.ext.dispatcher import run_async
@@ -43,6 +44,16 @@ def get_today_data_for_players():
     for i in range(len(names)):
         today_scores[names[i].get_text()] = int(scores[i].get_text())
     return today_scores
+
+
+def get_players_by_link():
+    # class ="stat-table fantasy-table"
+    # class="name-td
+    r = requests.get('https://www.sports.ru/fantasy/basketball/team/424989.html')
+    html = bs4.BeautifulSoup(r.text, "html.parser")
+    td = html.find_all('div', {'class': "basket-field"})
+    for p in td:
+        print(p)
 
 
 def get_all_sheets():
@@ -102,6 +113,40 @@ def get_credentials():
 
 
 prev_name = ""
+last_injury_date = datetime.datetime.now() - datetime.timedelta(days=2)
+
+
+@run_async
+def injury_report(bot, update):
+    try:
+        chat_id = update.message.chat.id
+        r = requests.get('http://www.rotoworld.com/teams/injuries/nba/all/')
+        html = bs4.BeautifulSoup(r.text, "html.parser")
+        reports = html.find_all('div', {'class': "report"})
+        print(len(reports))
+        impacts = html.find_all('div', {'class': "impact"})
+        print(len(impacts))
+        dates = html.find_all('div', {'class': "date"})
+        print(len(dates))
+        report = []
+        for i in range(len(reports)):
+            # my_date = datetime.datetime.strptime(row['date'], "%Y-%m-%d")
+            report.append((reports[i].get_text(), impacts[i + 1].get_text(),
+                           datetime.datetime.strptime(str(datetime.datetime.now().year) + " " + dates[i].get_text(),
+                                                      "%Y %b %d")
+                           ))
+        report.sort(key=lambda x: x[2], reverse=True)
+        # [i for i in j if i >= 5]
+        z = [i for i in report if i[2] > last_injury_date]
+        report_msg = ""
+        for report in z:
+            report_msg += report[0] + " " + report[1] + " " + report[2].strftime('%d, %b %Y') + "\n"
+        msgs = [report_msg[i:i + 4000] for i in range(0, len(report_msg), 4000)]
+        for text in msgs:
+            bot.send_message(chat_id, text="<pre>" + text + "</pre>", parse_mode='HTML')
+
+    except Exception as e:
+        print(e)
 
 
 @run_async
@@ -149,8 +194,11 @@ def itaka(bot, job):
 def main():
     updater = Updater("")
 
+    #updater.dispatcher.add_handler(CommandHandler('injuryReport', injury_report))
+
     job = updater.job_queue
     job.run_repeating(itaka, interval=300, first=0)
+
     updater.start_polling()
     updater.idle()
 
