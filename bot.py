@@ -74,9 +74,10 @@ def read_players_sheet():
     today_data = get_today_data_for_players()
     diff = []
     for key, value in today_data.items():
-        ppg = history_data[key.strip(' ')]
-        pr = tuple((key, float(ppg) - float(value)))
-        diff.append(pr)
+        if key.strip(' ') in history_data:
+            ppg = history_data[key.strip(' ')]
+            pr = tuple((key, float(ppg) - float(value)))
+            diff.append(pr)
     # todo filter only players that we have on sports.ru
     # [x for x in my_list if x.attribute == value]
     diff.sort(key=lambda x: x[1])
