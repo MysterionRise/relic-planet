@@ -9,6 +9,8 @@ import requests
 import bs4
 import pandas as pd
 import datetime
+import os.path
+import pickle
 
 from telegram.ext import Updater, CommandHandler
 from telegram.ext.dispatcher import run_async
@@ -116,6 +118,19 @@ def get_credentials():
 prev_name = ""
 last_injury_date = datetime.datetime.now() - datetime.timedelta(days=2)
 
+npy = 'worst_players'
+
+def read_worst_players():
+    if os.path.getsize(npy) > 0:
+        with open(npy, 'rb') as pickle_file:
+            return pickle.load(pickle_file)
+    return {}
+
+def save_worst_players(players):
+    with open(npy, 'wb') as pickle_file:
+        pickle.dump(players, pickle_file)
+
+worst_players = read_worst_players()
 
 @run_async
 def injury_report(bot, update):
@@ -174,20 +189,39 @@ def itaka(bot, job):
             # split xslx and read sheet & convert to csv
             best, worst = read_players_sheet()
 
+            print("reading csv")
             # reading the csv
             with open('forecast.csv', encoding='utf-8') as f:
                 reader = csv.reader(f)
                 filtered = filter(lambda x: x[1] in teams, reader)
+                worst_players[str(datetime.datetime.now().date())] = worst[0]
+                print(worst_players)
+                save_worst_players(worst_players)
                 itaka = "<b>Pidor dnya: {} {}\n".format(worst[0], -worst[1])
-                itaka += "Reverse pidor dnya: {} +{}</b>\n".format(best[0], -best[1])
+                itaka += "Reverse dnya: {} +{}</b>\n".format(best[0], -best[1])
                 itaka += "\n"
                 itaka += "<b>Total Today Diff Week Transfers RemainingGames Team </b>\n<pre>"
                 for row in filtered:
                     itaka += "{} {} {} {} {} {} {}\n".format(row[4], row[5], row[3], row[9], row[14], row[13], row[1])
                 itaka += "</pre>"
-                msg = bot.send_message(chat_id, text=itaka, parse_mode='HTML')
-                bot.pin_chat_message(chat_id, msg.message_id)
+                print("Ready to send message to chatland")
+                #msg = bot.send_message(chat_id, text=itaka, parse_mode='HTML')
+                #bot.pin_chat_message(chat_id, msg.message_id)
 
+    except Exception as e:
+        print(e)
+
+@run_async
+def worst_player_report(bot, update):
+    try:
+        worst_players = read_worst_players()
+        v = {}
+        for key, value in sorted(worst_players.items()):
+            print(key)
+            print(value)
+            v[value] += 1
+        print(v)
+        #update.message.reply_text("", parse_mode='HTML')
     except Exception as e:
         print(e)
 
@@ -195,7 +229,7 @@ def itaka(bot, job):
 def main():
     updater = Updater("")
 
-    #updater.dispatcher.add_handler(CommandHandler('injuryReport', injury_report))
+    updater.dispatcher.add_handler(CommandHandler('pidorReport', worst_player_report))
 
     job = updater.job_queue
     job.run_repeating(itaka, interval=300, first=0)

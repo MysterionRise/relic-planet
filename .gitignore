@@ -9,6 +9,7 @@ __pycache__/
 #
 *.csv
 *.xlsx
+client_secret.json
 
 # Distribution / packaging
 .Python
