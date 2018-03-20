@@ -45,6 +45,10 @@ def get_today_data_for_players():
     names = html.find_all('td', {'class': "player-name"})
     for i in range(len(names)):
         today_scores[names[i].get_text()] = int(scores[i].get_text())
+    #df = pd.read_csv(open('data', 'rb'))
+    #for index, row in df.iterrows():
+    #    if index % 2 == 0:
+    #        today_scores[row['name']] = int(row['score'])
     return today_scores
 
 
