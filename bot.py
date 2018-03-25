@@ -118,14 +118,24 @@ def get_credentials():
         print('Storing credentials to ' + credential_path)
     return credentials
 
+def read_last_name():
+    if os.path.exists('lastname') > 0:
+        with open('lastname', 'r') as f:
+            lines = f.readlines()
+            return lines[0]
+    return ''
 
-prev_name = ""
+def save_last_name(name):
+    with open('lastname', 'w') as f:
+        f.write(name)
+
+prev_name = read_last_name()
 last_injury_date = datetime.datetime.now() - datetime.timedelta(days=2)
 
 npy = 'worst_players'
 
 def read_worst_players():
-    if os.path.getsize(npy) > 0:
+    if os.path.exists(npy) > 0:
         with open(npy, 'rb') as pickle_file:
             return pickle.load(pickle_file)
     return {}
@@ -209,8 +219,9 @@ def itaka(bot, job):
                     itaka += "{} {} {} {} {} {} {}\n".format(row[4], row[5], row[3], row[9], row[14], row[13], row[1])
                 itaka += "</pre>"
                 print("Ready to send message to chatland")
-                #msg = bot.send_message(chat_id, text=itaka, parse_mode='HTML')
-                #bot.pin_chat_message(chat_id, msg.message_id)
+                save_last_name(current_name)
+                msg = bot.send_message(chat_id, text=itaka, parse_mode='HTML')
+                bot.pin_chat_message(chat_id, msg.message_id)
 
     except Exception as e:
         print(e)
