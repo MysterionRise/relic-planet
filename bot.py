@@ -231,12 +231,13 @@ def worst_player_report(bot, update):
     try:
         worst_players = read_worst_players()
         v = {}
-        for key, value in sorted(worst_players.items()):
-            print(key)
-            print(value)
-            v[value] += 1
-        print(v)
-        #update.message.reply_text("", parse_mode='HTML')
+        for key, value in worst_players.items():
+            v[value] = v.get(value, 0) + 1
+        message = ""
+        for f, s in sorted(v.items(), key=lambda x: x[1], reverse=True):
+            message += "{} - {}\n".format(f, s)
+        print(message)
+        update.message.reply_text(message, parse_mode='HTML')
     except Exception as e:
         print(e)
 
