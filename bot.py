@@ -11,6 +11,7 @@ import pandas as pd
 import datetime
 import os.path
 import pickle
+import sys
 
 from telegram.ext import Updater, CommandHandler
 from telegram.ext.dispatcher import run_async
@@ -20,8 +21,8 @@ from oauth2client import client
 from oauth2client import tools
 from oauth2client.file import Storage
 
-teams = ["Delonte West", "Вино физрука Jоповичя", "why not?", "Smokin Ducks", "Скан-Тим", "Секта Свидетелей", "WSG",
-         "50 лет без побед", "d.a.m.n. team", "Florida Magic", "-=BallBangers=-", "Трабловики 2017-18"]
+teams = ["Скан-Тим", "Трабловики в по +18", "Нулебал", "Секта Свидетелей", "WSG", "why not?", "Delonte West",
+         "Нас тут нет", "Smokin Ducks"]
 
 try:
     import argparse
@@ -45,8 +46,8 @@ def get_today_data_for_players():
     names = html.find_all('td', {'class': "player-name"})
     for i in range(len(names)):
         today_scores[names[i].get_text()] = int(scores[i].get_text())
-    #df = pd.read_csv(open('data', 'rb'))
-    #for index, row in df.iterrows():
+    # df = pd.read_csv(open('data', 'rb'))
+    # for index, row in df.iterrows():
     #    if index % 2 == 0:
     #        today_scores[row['name']] = int(row['score'])
     return today_scores
@@ -75,19 +76,30 @@ def get_all_sheets():
 
 
 def read_players_sheet():
-    df = pd.read_excel(open('forecast.xlsx', 'rb'), 'Players')
-    history_data = dict(zip(df['Player'], df['PPG']))
-    today_data = get_today_data_for_players()
-    diff = []
-    for key, value in today_data.items():
-        if key.strip(' ') in history_data:
-            ppg = history_data[key.strip(' ')]
-            pr = tuple((key, float(ppg) - float(value)))
-            diff.append(pr)
-    # todo filter only players that we have on sports.ru
-    # [x for x in my_list if x.attribute == value]
-    diff.sort(key=lambda x: x[1])
-    return (diff[0], diff[len(diff) - 1])
+    try:
+        df = pd.read_excel(open('forecast.xlsx', 'rb'), 'Players')
+        ppg_data = dict(zip(df['Player'], df['PPG']))
+        total_data = dict(zip(df['Player'], df['Points']))
+        today_data = get_today_data_for_players()
+        diff = []
+        for key, value in today_data.items():
+            if key.strip(' ') in ppg_data:
+                ppg = float(ppg_data[key.strip(' ')])
+                total = float(total_data[key.strip(' ')])
+                if total != 0:
+                    correct_ppg = ((total - float(value)) * ppg) / total
+                else:
+                    correct_ppg = 0
+                pr = tuple((key, float(correct_ppg) - float(value)))
+                diff.append(pr)
+        # todo filter only players that we have on sports.ru
+        # [x for x in my_list if x.attribute == value]
+        diff.sort(key=lambda x: x[1])
+        return diff[0], diff[len(diff) - 1]
+    except Exception as inst:
+        print('Error on line {}'.format(sys.exc_info()[-1].tb_lineno))
+        print(type(inst))  # the exception instance
+        print(inst.args)  # arguments stored in .args
 
 
 def get_credentials():
@@ -118,6 +130,7 @@ def get_credentials():
         print('Storing credentials to ' + credential_path)
     return credentials
 
+
 def read_last_name():
     if os.path.exists('lastname') > 0:
         with open('lastname', 'r') as f:
@@ -125,14 +138,17 @@ def read_last_name():
             return lines[0]
     return ''
 
+
 def save_last_name(name):
     with open('lastname', 'w') as f:
         f.write(name)
+
 
 prev_name = read_last_name()
 last_injury_date = datetime.datetime.now() - datetime.timedelta(days=2)
 
 npy = 'worst_players'
+
 
 def read_worst_players():
     if os.path.exists(npy) > 0:
@@ -140,11 +156,14 @@ def read_worst_players():
             return pickle.load(pickle_file)
     return {}
 
+
 def save_worst_players(players):
     with open(npy, 'wb') as pickle_file:
         pickle.dump(players, pickle_file)
 
+
 worst_players = read_worst_players()
+
 
 @run_async
 def injury_report(bot, update):
@@ -225,6 +244,7 @@ def itaka(bot, job):
 
     except Exception as e:
         print(e)
+
 
 @run_async
 def worst_player_report(bot, update):
