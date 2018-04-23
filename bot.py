@@ -86,8 +86,9 @@ def read_players_sheet():
             if key.strip(' ') in ppg_data:
                 ppg = float(ppg_data[key.strip(' ')])
                 total = float(total_data[key.strip(' ')])
-                if total != 0:
-                    correct_ppg = ((total - float(value)) * ppg) / total
+                if total != 0 and ppg != 0 and total / ppg > 1:
+                    number_of_games = total / ppg
+                    correct_ppg = ((total - float(value)) / (number_of_games - 1))
                 else:
                     correct_ppg = 0
                 pr = tuple((key, float(correct_ppg) - float(value)))
@@ -95,7 +96,7 @@ def read_players_sheet():
         # todo filter only players that we have on sports.ru
         # [x for x in my_list if x.attribute == value]
         diff.sort(key=lambda x: x[1])
-        return diff[0], diff[len(diff) - 1]
+        return diff[0], diff[1], diff[2], diff[len(diff) - 3], diff[len(diff) - 2], diff[len(diff) - 1]
     except Exception as inst:
         print('Error on line {}'.format(sys.exc_info()[-1].tb_lineno))
         print(type(inst))  # the exception instance
@@ -220,18 +221,20 @@ def itaka(bot, job):
             # get all sheets
             get_all_sheets()
             # split xslx and read sheet & convert to csv
-            best, worst = read_players_sheet()
+            best1, best2, best3, worst3, worst2, worst1 = read_players_sheet()
 
             print("reading csv")
             # reading the csv
             with open('forecast.csv', encoding='utf-8') as f:
                 reader = csv.reader(f)
                 filtered = filter(lambda x: x[1] in teams, reader)
-                worst_players[str(datetime.datetime.now().date())] = worst[0]
+                worst_players[str(datetime.datetime.now().date())] = worst1[0]
                 print(worst_players)
                 save_worst_players(worst_players)
-                itaka = "<b>Pidor dnya: {} {}\n".format(worst[0], -worst[1])
-                itaka += "Reverse dnya: {} +{}</b>\n".format(best[0], -best[1])
+                itaka = "<b>Top-3 pidors dnya:\n {} {}\n {} {} \n {} {} \n".format(worst1[0], -worst1[1],
+                                                                                   worst2[0], -worst2[1],
+                                                                                   worst3[0], -worst3[1])
+                itaka += "Reverse dnya: {} +{}</b>\n".format(best1[0], -best1[1])
                 itaka += "\n"
                 itaka += "<b>Total Today Diff Week Transfers RemainingGames Team </b>\n<pre>"
                 for row in filtered:
