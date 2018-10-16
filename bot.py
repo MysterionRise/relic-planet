@@ -21,8 +21,8 @@ from oauth2client import client
 from oauth2client import tools
 from oauth2client.file import Storage
 
-teams = ["Скан-Тим", "Трабловики в по +18", "Нулебал", "Секта Свидетелей", "WSG", "why not?", "Delonte West",
-         "Нас тут нет", "Smokin Ducks"]
+teams = ["СканТим", "Мамка Дончича", "Нулебал", "Секта Свидетелей", "WSG", "why not?", "Delonte West",
+         "Бендер", "OpenAI"]
 
 try:
     import argparse
