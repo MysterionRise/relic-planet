@@ -16,13 +16,16 @@ import sys
 from telegram.ext import Updater, CommandHandler
 from telegram.ext.dispatcher import run_async
 
+from selenium import webdriver
+from selenium.webdriver.firefox.options import Options
+
 from apiclient import discovery
 from oauth2client import client
 from oauth2client import tools
 from oauth2client.file import Storage
 
 teams = ["СканТим", "Мамка Дончича", "Нулебал", "Секта Свидетелей", "WSG", "why not?", "Delonte West",
-         "Бендер", "OpenAI"]
+         "Бендер", "OpenAI", "Трабловики 2018-9"]
 
 try:
     import argparse
@@ -39,13 +42,19 @@ APPLICATION_NAME = 'Drive API Python Quickstart'
 
 
 def get_today_data_for_players():
-    r = requests.get('http://nbafantasy.center/')
-    html = bs4.BeautifulSoup(r.text, "html.parser")
+    options = Options()
+    options.add_argument('--headless')
+
+    driver = webdriver.Firefox(options=options)
+    driver.get('http://nbafantasy.center/')
+    scores = driver.find_elements_by_css_selector('td[class~="player-score"]')
+    names = driver.find_elements_by_css_selector('td[class~="player-name"]')
     today_scores = {}
-    scores = html.find_all('td', {'class': "player-score"})
-    names = html.find_all('td', {'class': "player-name"})
     for i in range(len(names)):
-        today_scores[names[i].get_text()] = int(scores[i].get_text())
+        if scores[i].text:
+            print(scores[i].text)
+            print(names[i].text)
+            today_scores[names[i].text] = int(scores[i].text)
     # df = pd.read_csv(open('data', 'rb'))
     # for index, row in df.iterrows():
     #    if index % 2 == 0:
@@ -95,6 +104,7 @@ def read_players_sheet():
                 diff.append(pr)
         # todo filter only players that we have on sports.ru
         # [x for x in my_list if x.attribute == value]
+        print(diff)
         diff.sort(key=lambda x: x[1])
         return diff[0], diff[1], diff[2], diff[len(diff) - 3], diff[len(diff) - 2], diff[len(diff) - 1]
     except Exception as inst:
