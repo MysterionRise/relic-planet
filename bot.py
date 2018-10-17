@@ -87,8 +87,8 @@ def get_all_sheets():
 def read_players_sheet():
     try:
         df = pd.read_excel(open('forecast.xlsx', 'rb'), 'Players')
-        ppg_data = dict(zip(df['Player'], df['PPG']))
-        total_data = dict(zip(df['Player'], df['Points']))
+        ppg_data = dict(zip(df['Sports.ru'], df['PPG']))
+        total_data = dict(zip(df['Sports.ru'], df['Points']))
         today_data = get_today_data_for_players()
         diff = []
         for key, value in today_data.items():
