@@ -12,6 +12,7 @@ import datetime
 import os.path
 import pickle
 import sys
+import io
 
 from telegram.ext import Updater, CommandHandler
 from telegram.ext.dispatcher import run_async
@@ -23,6 +24,10 @@ from apiclient import discovery
 from oauth2client import client
 from oauth2client import tools
 from oauth2client.file import Storage
+from apiclient.http import MediaIoBaseDownload
+from googleapiclient.discovery import build
+from google_auth_oauthlib.flow import InstalledAppFlow
+from google.auth.transport.requests import Request
 
 teams = ["СканТим", "Мамка Дончича", "Нулебал", "Секта Свидетелей", "WSG", "why not?", "Delonte West",
          "Бендер", "OpenAI", "Трабловики 2018-9"]
@@ -75,13 +80,15 @@ def get_players_by_link():
 def get_all_sheets():
     file_id = '1iltpcolP3b-wb4w3eROVsByF4Mqy4gDt8BJExmjzGtw'
     credentials = get_credentials()
-    http = credentials.authorize(httplib2.Http())
-    drive_service = discovery.build('drive', 'v3', http=http)
+    drive_service = build('drive', 'v3', credentials=credentials)
     request = drive_service.files().export(fileId=file_id,
                                            mimeType='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    resp = request.execute(http=http)
-    file = open("forecast.xlsx", "wb")
-    file.write(resp)
+
+    fh = io.FileIO("forecast.xlsx", 'wb')
+    downloader = MediaIoBaseDownload(fh, request)
+    done = False
+    while done is False:
+        status, done = downloader.next_chunk()
 
 
 def read_players_sheet():
@@ -114,32 +121,28 @@ def read_players_sheet():
 
 
 def get_credentials():
-    """Gets valid user credentials from storage.
-
-    If nothing has been stored, or if the stored credentials are invalid,
-    the OAuth2 flow is completed to obtain the new credentials.
-
-    Returns:
-        Credentials, the obtained credential.
+    """Shows basic usage of the Drive v3 API.
+    Prints the names and ids of the first 10 files the user has access to.
     """
-    home_dir = os.path.expanduser('~')
-    credential_dir = os.path.join(home_dir, '.credentials')
-    if not os.path.exists(credential_dir):
-        os.makedirs(credential_dir)
-    credential_path = os.path.join(credential_dir,
-                                   'drive-python-quickstart.json')
-
-    store = Storage(credential_path)
-    credentials = store.get()
-    if not credentials or credentials.invalid:
-        flow = client.flow_from_clientsecrets(CLIENT_SECRET_FILE, SCOPES)
-        flow.user_agent = APPLICATION_NAME
-        if flags:
-            credentials = tools.run_flow(flow, store, flags)
-        else:  # Needed only for compatibility with Python 2.6
-            credentials = tools.run(flow, store)
-        print('Storing credentials to ' + credential_path)
-    return credentials
+    creds = None
+    # The file token.pickle stores the user's access and refresh tokens, and is
+    # created automatically when the authorization flow completes for the first
+    # time.
+    if os.path.exists('token.pickle'):
+        with open('token.pickle', 'rb') as token:
+            creds = pickle.load(token)
+    # If there are no (valid) credentials available, let the user log in.
+    if not creds or not creds.valid:
+        if creds and creds.expired and creds.refresh_token:
+            creds.refresh(Request())
+        else:
+            flow = InstalledAppFlow.from_client_secrets_file(
+                'credentials.json', SCOPES)
+            creds = flow.run_local_server()
+        # Save the credentials for the next run
+        with open('token.pickle', 'wb') as token:
+            pickle.dump(creds, token)
+    return creds
 
 
 def read_last_name():
@@ -216,8 +219,7 @@ def itaka(bot, job):
         chat_id = "-1001140113988"
         file_id = '1iltpcolP3b-wb4w3eROVsByF4Mqy4gDt8BJExmjzGtw'
         credentials = get_credentials()
-        http = credentials.authorize(httplib2.Http())
-        drive_service = discovery.build('drive', 'v3', http=http)
+        drive_service = build('drive', 'v3', credentials=credentials)
         current_name = drive_service.files().get(fileId=file_id).execute()["name"]
 
         global prev_name
@@ -225,28 +227,33 @@ def itaka(bot, job):
             print("we should call itaka")
             prev_name = current_name
             request = drive_service.files().export(fileId=file_id, mimeType='text/csv')
-            resp = request.execute(http=http)
-            file = open("forecast.csv", "wb")
-            file.write(resp)
+
+            fh = io.FileIO("forecast.csv", 'wb')
+            downloader = MediaIoBaseDownload(fh, request)
+            done = False
+            while done is False:
+                status, done = downloader.next_chunk()
             # get all sheets
             get_all_sheets()
             # split xslx and read sheet & convert to csv
-            best1, best2, best3, worst3, worst2, worst1 = read_players_sheet()
+            # TODO FIX IT
+            # best1, best2, best3, worst3, worst2, worst1 = read_players_sheet()
 
             print("reading csv")
             # reading the csv
             with open('forecast.csv', encoding='utf-8') as f:
                 reader = csv.reader(f)
                 filtered = filter(lambda x: x[1] in teams, reader)
-                worst_players[str(datetime.datetime.now().date())] = worst1[0]
-                print(worst_players)
-                save_worst_players(worst_players)
-                itaka = "<b>Top-3 pidors dnya:\n {} {}\n {} {} \n {} {} \n".format(worst1[0], -worst1[1],
-                                                                                   worst2[0], -worst2[1],
-                                                                                   worst3[0], -worst3[1])
-                itaka += "Reverse dnya: {} +{}</b>\n".format(best1[0], -best1[1])
-                itaka += "\n"
-                itaka += "<b>Total Today Diff Week Transfers RemainingGames Team </b>\n<pre>"
+                # TODO FIX IT
+                #worst_players[str(datetime.datetime.now().date())] = worst1[0]
+                #print(worst_players)
+                #save_worst_players(worst_players)
+                #itaka = "<b>Top-3 pidors dnya:\n {} {}\n {} {} \n {} {} \n".format(worst1[0], -worst1[1],
+                #                                                                   worst2[0], -worst2[1],
+                #                                                                   worst3[0], -worst3[1])
+                #itaka += "Reverse dnya: {} +{}</b>\n".format(best1[0], -best1[1])
+                #itaka += "\n"
+                itaka = "<b>Total Today Diff Week Transfers RemainingGames Team </b>\n<pre>"
                 for row in filtered:
                     itaka += "{} {} {} {} {} {} {}\n".format(row[4], row[5], row[3], row[9], row[14], row[13], row[1])
                 itaka += "</pre>"
@@ -276,7 +283,7 @@ def worst_player_report(bot, update):
 
 
 def main():
-    updater = Updater("")
+    updater = Updater("454937308:AAEZqBmidySjB7PhtXs3HnOiTl_YzqTbIXg")
 
     updater.dispatcher.add_handler(CommandHandler('pidorReport', worst_player_report))
 

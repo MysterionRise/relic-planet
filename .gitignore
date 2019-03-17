@@ -109,3 +109,6 @@ ENV/
 .idea/preferred-vcs.xml
 .idea/preferred-vcs.xml
 /logo.png
+
+credentials.json
+token.pickle
