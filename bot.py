@@ -283,7 +283,7 @@ def worst_player_report(bot, update):
 
 
 def main():
-    updater = Updater("454937308:AAEZqBmidySjB7PhtXs3HnOiTl_YzqTbIXg")
+    updater = Updater("")
 
     updater.dispatcher.add_handler(CommandHandler('pidorReport', worst_player_report))
 
