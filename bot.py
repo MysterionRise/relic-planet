@@ -29,7 +29,7 @@ from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 
-teams = ["Delonte West", "KIWANUKA", "Трабловики", "Секта Свидетелей", "Donaghy's Sports Book", "СканТим"]
+teams = ["Delonte West", "KIWANUKA", "Трабловики", "Секта Свидетелей", "Donaghy's Sports Book", "СканТим", "Дончич Мамки"]
 
 try:
     import argparse
