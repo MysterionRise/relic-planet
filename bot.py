@@ -13,8 +13,9 @@ import os.path
 import pickle
 import sys
 import io
+import atexit
 
-from telegram.ext import Updater, CommandHandler
+from telegram.ext import Updater, CommandHandler, CallbackContext
 from telegram.ext.dispatcher import run_async
 
 from selenium import webdriver
@@ -28,8 +29,6 @@ from apiclient.http import MediaIoBaseDownload
 from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
-
-teams = ["Delonte West", "KIWANUKA", "Трабловики", "Секта Свидетелей", "Donaghy's Sports Book", "СканТим", "Дончич Мамки", "Dynamo Moscow"]
 
 try:
     import argparse
@@ -144,86 +143,80 @@ def get_credentials():
     return creds
 
 
-def read_last_name():
-    if os.path.exists('lastname') > 0:
-        with open('lastname', 'r') as f:
+lastname_config = 'lastname'
+
+
+def read_last_name(config=lastname_config):
+    if os.path.exists(config) > 0:
+        with open(config, 'r') as f:
             lines = f.readlines()
             return lines[0]
     return ''
 
 
-def save_last_name(name):
-    with open('lastname', 'w') as f:
+def save_last_name(name, config=lastname_config):
+    with open(config, 'w') as f:
         f.write(name)
 
 
 prev_name = read_last_name()
-last_injury_date = datetime.datetime.now() - datetime.timedelta(days=2)
 
-npy = 'worst_players'
+chat_ids_config = 'chat_ids'
 
 
-def read_worst_players():
-    if os.path.exists(npy) > 0:
-        with open(npy, 'rb') as pickle_file:
+def read_chat_ids():
+    if os.path.exists(chat_ids_config) > 0:
+        with open(chat_ids_config, 'rb') as pickle_file:
+            return pickle.load(pickle_file)
+    return []
+
+
+def save_chat_ids(chat_ids):
+    with open(chat_ids_config, 'wb') as pickle_file:
+        pickle.dump(chat_ids, pickle_file)
+
+
+chat_ids = read_chat_ids()
+
+teams_by_chat_id_config = 'teams_by_chat_id'
+
+
+def read_teams_by_chat_id():
+    if os.path.exists(teams_by_chat_id_config) > 0:
+        with open(teams_by_chat_id_config, 'rb') as pickle_file:
             return pickle.load(pickle_file)
     return {}
 
 
-def save_worst_players(players):
-    with open(npy, 'wb') as pickle_file:
-        pickle.dump(players, pickle_file)
+def save_teams_by_chat_id(teams_by_chat_id):
+    with open(teams_by_chat_id_config, 'wb') as pickle_file:
+        pickle.dump(teams_by_chat_id, pickle_file)
 
 
-worst_players = read_worst_players()
+teams_by_chat_id = read_teams_by_chat_id()
 
 
-@run_async
-def injury_report(bot, update):
-    try:
-        chat_id = update.message.chat.id
-        r = requests.get('http://www.rotoworld.com/teams/injuries/nba/all/')
-        html = bs4.BeautifulSoup(r.text, "html.parser")
-        reports = html.find_all('div', {'class': "report"})
-        print(len(reports))
-        impacts = html.find_all('div', {'class': "impact"})
-        print(len(impacts))
-        dates = html.find_all('div', {'class': "date"})
-        print(len(dates))
-        report = []
-        for i in range(len(reports)):
-            # my_date = datetime.datetime.strptime(row['date'], "%Y-%m-%d")
-            report.append((reports[i].get_text(), impacts[i + 1].get_text(),
-                           datetime.datetime.strptime(str(datetime.datetime.now().year) + " " + dates[i].get_text(),
-                                                      "%Y %b %d")
-                           ))
-        report.sort(key=lambda x: x[2], reverse=True)
-        # [i for i in j if i >= 5]
-        z = [i for i in report if i[2] > last_injury_date]
-        report_msg = ""
-        for report in z:
-            report_msg += report[0] + " " + report[1] + " " + report[2].strftime('%d, %b %Y') + "\n"
-        msgs = [report_msg[i:i + 4000] for i in range(0, len(report_msg), 4000)]
-        for text in msgs:
-            bot.send_message(chat_id, text="<pre>" + text + "</pre>", parse_mode='HTML')
-
-    except Exception as e:
-        print(e)
+def eligble_for_report(chat_id, current_name):
+    name = read_last_name(chat_id)
+    if name != current_name:
+        return True
+    return False
 
 
 @run_async
-def itaka(bot, job):
+def itaka(context):
     try:
         print("polling changes from Google Drive")
-        chat_id = "-1001140113988"
         file_id = '1iltpcolP3b-wb4w3eROVsByF4Mqy4gDt8BJExmjzGtw'
         credentials = get_credentials()
         drive_service = build('drive', 'v3', credentials=credentials)
         current_name = drive_service.files().get(fileId=file_id).execute()["name"]
 
         global prev_name
+        global chat_ids
+        global teams_by_chat_id
         if current_name != prev_name:
-            print("we should call itaka")
+            print("we should download fresh file")
             prev_name = current_name
             request = drive_service.files().export(fileId=file_id, mimeType='text/csv')
 
@@ -234,60 +227,85 @@ def itaka(bot, job):
                 status, done = downloader.next_chunk()
             # get all sheets
             get_all_sheets()
-            # split xslx and read sheet & convert to csv
-            # TODO FIX IT
-            # best1, best2, best3, worst3, worst2, worst1 = read_players_sheet()
+            save_last_name(current_name)
+            save_chat_ids(chat_ids)
+            save_teams_by_chat_id(teams_by_chat_id)
 
-            print("reading csv")
             # reading the csv
-            with open('forecast.csv', encoding='utf-8') as f:
-                reader = csv.reader(f)
-                filtered = filter(lambda x: x[1] in teams, reader)
-                # TODO FIX IT
-                #worst_players[str(datetime.datetime.now().date())] = worst1[0]
-                #print(worst_players)
-                #save_worst_players(worst_players)
-                #itaka = "<b>Top-3 pidors dnya:\n {} {}\n {} {} \n {} {} \n".format(worst1[0], -worst1[1],
-                #                                                                   worst2[0], -worst2[1],
-                #                                                                   worst3[0], -worst3[1])
-                #itaka += "Reverse dnya: {} +{}</b>\n".format(best1[0], -best1[1])
-                #itaka += "\n"
-                itaka = "<b>Total Today Diff Week Transfers RemainingGames Team </b>\n<pre>"
-                for row in filtered:
-                    itaka += "{} {} {} {} {} {} {}\n".format(row[4], row[5], row[3], row[9], row[14], row[13], row[1])
-                itaka += "</pre>"
-                print("Ready to send message to chatland")
-                save_last_name(current_name)
-                msg = bot.send_message(chat_id, text=itaka, parse_mode='HTML')
-                bot.pin_chat_message(chat_id, msg.message_id)
+
+        print("we should try to call itaka for chats: {}".format(chat_ids))
+        for chat_id in chat_ids:
+            print(chat_id)
+            if eligble_for_report("chat_" + str(chat_id), current_name):
+                teams = teams_by_chat_id[chat_id]
+                if len(teams) > 0:
+                    with open('forecast.csv', encoding='utf-8') as f:
+                        reader = csv.reader(f)
+                        filtered = filter(lambda x: x[1] in teams, reader)
+                        itaka = "<b>Total Today Diff Week Transfers RemainingGames Team </b>\n<pre>"
+                        for row in filtered:
+                            itaka += "{} {} {} {} {} {} {}\n".format(row[4], row[5], row[3], row[9], row[14], row[13],
+                                                                     row[1])
+                        itaka += "</pre>"
+                        print("Ready to send message to {}".format(chat_id))
+                        save_last_name(current_name, config="chat_" + str(chat_id))
+                        msg = context.bot.send_message(chat_id, text=itaka, parse_mode='HTML')
+                        context.bot.pin_chat_message(chat_id, msg.message_id)
 
     except Exception as e:
         print(e)
 
 
 @run_async
-def worst_player_report(bot, update):
-    try:
-        worst_players = read_worst_players()
-        v = {}
-        for key, value in worst_players.items():
-            v[value] = v.get(value, 0) + 1
-        message = ""
-        for f, s in sorted(v.items(), key=lambda x: x[1], reverse=True):
-            message += "{} - {}\n".format(f, s)
-        print(message)
-        update.message.reply_text(message, parse_mode='HTML')
-    except Exception as e:
-        print(e)
+def start_callback(update, context):
+    update.message.reply_text("Добро пожаловать в Чятленд Фэнтази Бот!")
+    chat_ids.append(update.message.chat.id)
+    teams_by_chat_id[update.message.chat.id] = []
+
+
+@run_async
+def add_team_callback(update, context):
+    teams_by_chat_id[update.message.chat.id].append(" ".join(context.args))
+    update.message.reply_text("Добавляем команду {} в ежедневный отчет".format(" ".join(context.args)))
+
+@run_async
+def stop_callback(update, context):
+    teams_by_chat_id
+    update.message.reply_text("Спасибо за пользование ботом для отчетов")
+
+@run_async
+def help_callback(update, context):
+    update.message.reply_text(
+        text="""
+        <b>Команды Чятленд Фэнтази Бота:</b>
+        
+        Если вы хотите получить полную поддержку функционала - дайте боту возможность закреплять сообщения!
+        
+        /start - зарегистрировать чат для ежедневного отчета
+        /help - показать справку
+        /addTeam имя команды - добавить команду к ежедневному отчету
+        /stop - прекратить получать ежедневные отчеты
+        """, parse_mode='HTML'
+    )
+
+
+@atexit.register
+def goodbye():
+    save_chat_ids(chat_ids)
+    save_teams_by_chat_id(teams_by_chat_id)
+    print('exiting...')
 
 
 def main():
-    updater = Updater("")
+    updater = Updater("", use_context=True)
 
-    updater.dispatcher.add_handler(CommandHandler('pidorReport', worst_player_report))
+    updater.dispatcher.add_handler(CommandHandler('help', help_callback))
+    updater.dispatcher.add_handler(CommandHandler('start', start_callback))
+    updater.dispatcher.add_handler(CommandHandler('addTeam', add_team_callback))
+    updater.dispatcher.add_handler(CommandHandler('stop', stop_callback))
 
     job = updater.job_queue
-    job.run_repeating(itaka, interval=300, first=0)
+    job.run_repeating(itaka, interval=600, first=0)
 
     updater.start_polling()
     updater.idle()
