@@ -21,27 +21,11 @@ from telegram.ext.dispatcher import run_async
 from selenium import webdriver
 from selenium.webdriver.firefox.options import Options
 
-from apiclient import discovery
-from oauth2client import client
-from oauth2client import tools
-from oauth2client.file import Storage
-from apiclient.http import MediaIoBaseDownload
-from googleapiclient.discovery import build
-from google_auth_oauthlib.flow import InstalledAppFlow
-from google.auth.transport.requests import Request
-
 try:
     import argparse
-
     flags = argparse.ArgumentParser(parents=[tools.argparser]).parse_args()
 except ImportError:
     flags = None
-
-# If modifying these scopes, delete your previously saved credentials
-# at ~/.credentials/drive-python-quickstart.json
-SCOPES = 'https://www.googleapis.com/auth/drive.readonly'
-CLIENT_SECRET_FILE = 'client_secret.json'
-APPLICATION_NAME = 'Drive API Python Quickstart'
 
 
 def get_today_data_for_players():
@@ -75,18 +59,10 @@ def get_players_by_link():
         print(p)
 
 
-def get_all_sheets():
-    file_id = '1iltpcolP3b-wb4w3eROVsByF4Mqy4gDt8BJExmjzGtw'
-    credentials = get_credentials()
-    drive_service = build('drive', 'v3', credentials=credentials)
-    request = drive_service.files().export(fileId=file_id,
-                                           mimeType='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-
-    fh = io.FileIO("forecast.xlsx", 'wb')
-    downloader = MediaIoBaseDownload(fh, request)
-    done = False
-    while done is False:
-        status, done = downloader.next_chunk()
+def get_file_name(file_link):
+    r = requests.get(file_link)
+    d = r.headers['content-disposition']
+    return d
 
 
 def read_players_sheet():
@@ -116,31 +92,6 @@ def read_players_sheet():
         print('Error on line {}'.format(sys.exc_info()[-1].tb_lineno))
         print(type(inst))  # the exception instance
         print(inst.args)  # arguments stored in .args
-
-
-def get_credentials():
-    """Shows basic usage of the Drive v3 API.
-    Prints the names and ids of the first 10 files the user has access to.
-    """
-    creds = None
-    # The file token.pickle stores the user's access and refresh tokens, and is
-    # created automatically when the authorization flow completes for the first
-    # time.
-    if os.path.exists('token.pickle'):
-        with open('token.pickle', 'rb') as token:
-            creds = pickle.load(token)
-    # If there are no (valid) credentials available, let the user log in.
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
-            flow = InstalledAppFlow.from_client_secrets_file(
-                'credentials.json', SCOPES)
-            creds = flow.run_local_server()
-        # Save the credentials for the next run
-        with open('token.pickle', 'wb') as token:
-            pickle.dump(creds, token)
-    return creds
 
 
 lastname_config = 'lastname'
@@ -207,26 +158,19 @@ def eligble_for_report(chat_id, current_name):
 def itaka(context):
     try:
         print("polling changes from Google Drive")
-        file_id = '1iltpcolP3b-wb4w3eROVsByF4Mqy4gDt8BJExmjzGtw'
-        credentials = get_credentials()
-        drive_service = build('drive', 'v3', credentials=credentials)
-        current_name = drive_service.files().get(fileId=file_id).execute()["name"]
+        file_link = 'https://docs.google.com/spreadsheets/d/1iltpcolP3b-wb4w3eROVsByF4Mqy4gDt8BJExmjzGtw/export?format=csv'
+        current_name = get_file_name(file_link)
 
         global prev_name
         global chat_ids
         global teams_by_chat_id
         if current_name != prev_name:
             print("we should download fresh file")
+            r = requests.get(file_link)
             prev_name = current_name
-            request = drive_service.files().export(fileId=file_id, mimeType='text/csv')
+            with open('forecast.csv', 'wb') as f:
+                f.write(r.content)
 
-            fh = io.FileIO("forecast.csv", 'wb')
-            downloader = MediaIoBaseDownload(fh, request)
-            done = False
-            while done is False:
-                status, done = downloader.next_chunk()
-            # get all sheets
-            get_all_sheets()
             save_last_name(current_name)
             save_chat_ids(chat_ids)
             save_teams_by_chat_id(teams_by_chat_id)
