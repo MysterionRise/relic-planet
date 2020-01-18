@@ -17,16 +17,10 @@ import atexit
 
 from telegram.ext import Updater, CommandHandler, CallbackContext
 from telegram.ext.dispatcher import run_async
+from telegram import TelegramError
 
 from selenium import webdriver
 from selenium.webdriver.firefox.options import Options
-
-try:
-    import argparse
-    flags = argparse.ArgumentParser(parents=[tools.argparser]).parse_args()
-except ImportError:
-    flags = None
-
 
 def get_today_data_for_players():
     options = Options()
@@ -193,8 +187,11 @@ def itaka(context):
                         itaka += "</pre>"
                         print("Ready to send message to {}".format(chat_id))
                         save_last_name(current_name, config="chat_" + str(chat_id))
-                        msg = context.bot.send_message(chat_id, text=itaka, parse_mode='HTML')
-                        context.bot.pin_chat_message(chat_id, msg.message_id)
+                        try:
+                            msg = context.bot.send_message(chat_id, text=itaka, parse_mode='HTML')
+                            context.bot.pin_chat_message(chat_id, msg.message_id)
+                        except TelegramError as e:
+                            print(e)
 
     except Exception as e:
         print(e)
